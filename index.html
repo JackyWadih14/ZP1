@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>幸运大转盘</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    user-select: none;
+  }
+
+  h1 {
+    color: #ffd700;
+    font-size: 2rem;
+    margin-bottom: 24px;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+    letter-spacing: 4px;
+  }
+
+  .wheel-container {
+    position: relative;
+    width: 420px;
+    height: 420px;
+  }
+
+  /* 指针 */
+  .pointer {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    width: 0;
+    height: 0;
+    border-left: 18px solid transparent;
+    border-right: 18px solid transparent;
+    border-top: 42px solid #ff4757;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+  }
+  .pointer::after {
+    content: '';
+    position: absolute;
+    top: -48px;
+    left: -10px;
+    width: 20px;
+    height: 20px;
+    background: #ff4757;
+    border-radius: 50%;
+  }
+
+  canvas {
+    display: block;
+    border-radius: 50%;
+    box-shadow:
+      0 0 30px rgba(255, 215, 0, 0.3),
+      0 0 60px rgba(255, 215, 0, 0.1),
+      0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .btn-spin {
+    margin-top: 36px;
+    padding: 16px 64px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #1a1a2e;
+    background: linear-gradient(135deg, #ffd700, #ffaa00);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    letter-spacing: 3px;
+    box-shadow: 0 6px 24px rgba(255, 170, 0, 0.4);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-spin:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 32px rgba(255, 170, 0, 0.6);
+  }
+  .btn-spin:active {
+    transform: scale(0.96);
+  }
+  .btn-spin:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 4px 16px rgba(255, 170, 0, 0.2);
+  }
+
+  .result {
+    margin-top: 24px;
+    min-height: 36px;
+    font-size: 1.2rem;
+    color: #ffd700;
+    letter-spacing: 2px;
+    transition: all 0.3s;
+  }
+  .result.show {
+    animation: popIn 0.4s ease;
+  }
+  @keyframes popIn {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.15); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🎯 幸运大转盘</h1>
+
+<div class="wheel-container">
+  <div class="pointer"></div>
+  <canvas id="wheel" width="420" height="420"></canvas>
+</div>
+
+<button class="btn-spin" id="btnSpin" onclick="spin()">开 始 抽 奖</button>
+<div class="result" id="result"></div>
+
+<script>
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const btn = document.getElementById('btnSpin');
+const resultEl = document.getElementById('result');
+
+const SEGMENTS = [
+  { label: '一等奖', color: '#ff6b6b' },
+  { label: '二等奖', color: '#ffa502' },
+  { label: '三等奖', color: '#ffd700' },
+  { label: '参与奖', color: '#7bed9f' },
+  { label: '谢谢参与', color: '#70a1ff' },
+  { label: '幸运奖', color: '#a29bfe' },
+  { label: '特等奖', color: '#ff6348' },
+  { label: '再接再厉', color: '#1e90ff' },
+];
+
+const COUNT = SEGMENTS.length;
+const ARC = (2 * Math.PI) / COUNT;
+const RADIUS = 200;
+
+let currentAngle = 0;   // 当前旋转角度 (弧度)
+let spinning = false;
+
+// --- 绘制转盘 ---
+function drawWheel(angle) {
+  ctx.clearRect(0, 0, 420, 420);
+  const cx = 210, cy = 210;
+
+  // 绘制扇形
+  for (let i = 0; i < COUNT; i++) {
+    const start = angle + i * ARC;
+    const end = start + ARC;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, RADIUS, start, end);
+    ctx.closePath();
+    ctx.fillStyle = SEGMENTS[i].color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 文字
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(start + ARC / 2);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 16px "Microsoft YaHei", "PingFang SC", sans-serif';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 4;
+    ctx.fillText(SEGMENTS[i].label, RADIUS * 0.62, 6);
+    ctx.restore();
+  }
+
+  // 中心圆
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 36);
+  grad.addColorStop(0, '#fff');
+  grad.addColorStop(1, '#ddd');
+  ctx.beginPath();
+  ctx.arc(cx, cy, 36, 0, 2 * Math.PI);
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+}
+
+// --- 根据角度计算结果 ---
+function getResult(angle) {
+  // 指针在顶部 ( -PI/2 方向 ). 归一化到 [0, 2PI)
+  let raw = ((2 * Math.PI) - (angle % (2 * Math.PI))) % (2 * Math.PI);
+  if (raw < 0) raw += 2 * Math.PI;
+  const idx = Math.floor(raw / ARC) % COUNT;
+  return SEGMENTS[idx].label;
+}
+
+// --- 旋转动画 ---
+function spin() {
+  if (spinning) return;
+  spinning = true;
+  btn.disabled = true;
+  resultEl.classList.remove('show');
+  resultEl.textContent = '';
+
+  // 随机目标: 5~10 整圈 + 随机偏移
+  const fullRotations = 5 + Math.floor(Math.random() * 6);   // 5~10 圈
+  const randomArc = Math.random() * 2 * Math.PI;
+  const targetDelta = fullRotations * 2 * Math.PI + randomArc;
+  const startAngle = currentAngle;
+  const targetAngle = startAngle + targetDelta;
+
+  const duration = 4000 + Math.random() * 1000; // 4~5s
+  const startTime = performance.now();
+
+  function animate(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    currentAngle = startAngle + targetDelta * eased;
+    drawWheel(currentAngle);
+
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      currentAngle = targetAngle;
+      spinning = false;
+      btn.disabled = false;
+      const reward = getResult(currentAngle);
+      resultEl.textContent = '🎉 恭喜获得：' + reward + ' ！';
+      resultEl.classList.add('show');
+    }
+  }
+
+  requestAnimationFrame(animate);
+}
+
+// --- 初始绘制 ---
+drawWheel(currentAngle);
+</script>
+
+</body>
+</html>
